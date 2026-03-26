@@ -49,3 +49,12 @@ _site/
 .terraform/
 terraform.tfstate
 terraform.tfstate.backup
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+*.tfvars
+build/
+target/
+.gradle/
+*.log
