@@ -63,8 +63,7 @@ pipeline {
                 '
                 """
             }
-        }
-    }
+        }    
 
     post {
         always {
