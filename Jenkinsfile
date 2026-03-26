@@ -3,8 +3,6 @@ pipeline {
 
     environment {
         PATH = "/usr/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:${env.PATH}"
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
-        APP_SERVER = "ec2-user@100.48.19.188"
     }
 
     stages {
@@ -40,30 +38,27 @@ pipeline {
             }
         }
 
-        stage('Login to DockerHub') {
+        stage('Docker Login & Push') {
+            environment {
+                DOCKERHUB_CREDS = credentials('dockerhub-creds')
+            }
             steps {
-                sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                sh '''
+                echo $DOCKERHUB_CREDS_PSW | docker login -u $DOCKERHUB_CREDS_USR --password-stdin
+                docker push kishormore123/spring-petclinic:latest
+                '''
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Deploy Infrastructure with Terraform') {
             steps {
-                sh 'docker push kishormore123/spring-petclinic:latest'
+                dir('/home/ec2-user/devops-projects/terraform-petclinic') {
+                    sh 'terraform init'
+                    sh 'terraform apply -auto-approve'
+                }
             }
         }
-
-        stage('Deploy to Application Server') {
-            steps {
-                sh """
-                ssh -o StrictHostKeyChecking=no $APP_SERVER '
-                docker pull kishormore123/spring-petclinic:latest
-                docker stop spring-petclinic || true
-                docker rm spring-petclinic || true
-                docker run -d --name spring-petclinic -p 8081:8080 kishormore123/spring-petclinic:latest
-                '
-                """
-            }
-        }    
+    }
 
     post {
         always {
