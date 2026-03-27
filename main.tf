@@ -39,12 +39,12 @@ yum install -y docker
 systemctl start docker
 systemctl enable docker
 
-# wait for docker to fully initialize
+# wait for docker fully initialize
 sleep 30
 
-# pull and run container
-docker pull kishormore123/spring-petclinic
-docker run -d -p 8080:8080 kishormore123/spring-petclinic
+# pull and run container with restart policy
+docker pull kishormore123/spring-petclinic:latest
+docker run -d --name spring-petclinic -p 8080:8080 --restart unless-stopped kishormore123/spring-petclinic:latest
 EOF
 
   tags = {
