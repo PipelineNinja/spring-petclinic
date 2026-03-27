@@ -46,13 +46,11 @@ pipeline {
 
         stage('Terraform Init & Apply') {
             steps {
-                dir('terraform-petclinic') {
                     sh 'terraform init'
                     sh 'terraform apply -auto-approve'
                 }
             }
         }
-    }
 
     post {
         always {
