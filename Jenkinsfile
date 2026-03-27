@@ -26,12 +26,6 @@ pipeline {
             }
         }
 
-        stage('Archive Artifacts') {
-            steps {
-                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 sh 'docker build -t kishormore123/spring-petclinic:latest .'
@@ -50,9 +44,9 @@ pipeline {
             }
         }
 
-        stage('Deploy Infrastructure with Terraform') {
+        stage('Terraform Init & Apply') {
             steps {
-                dir('/home/ec2-user/devops-projects/terraform-petclinic') {
+                dir('terraform-petclinic') {
                     sh 'terraform init'
                     sh 'terraform apply -auto-approve'
                 }
