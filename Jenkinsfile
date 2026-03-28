@@ -44,7 +44,7 @@ pipeline {
                 sh """
                 mvn org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
                     -Dsonar.projectKey=SpringPetClinic \
-                    -Dsonar.host.url=http://13.217.221.121:9000 \
+                    -Dsonar.host.url=https://13.217.221.121:9000 \
                     -Dsonar.login=\$SONAR_TOKEN -B
                 """
             }
