@@ -34,7 +34,7 @@ pipeline {
                 sh '''
                 mvn sonar:sonar \
                     -Dsonar.projectKey=SpringPetClinic \
-                    -Dsonar.host.url=http://44.213.66.196:9000/ \
+                    -Dsonar.host.url=https://44.213.66.196:9000/ \
                     -Dsonar.login=$SONAR_TOKEN
                 '''
             }
