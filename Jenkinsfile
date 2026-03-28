@@ -3,10 +3,6 @@ pipeline {
 
     environment {
         PATH = "/usr/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:${env.PATH}"
-        // Predefined Spring Boot datasource to reuse MySQL container
-        SPRING_DATASOURCE_URL = "jdbc:mysql://localhost:3306/test"
-        SPRING_DATASOURCE_USERNAME = "root"
-        SPRING_DATASOURCE_PASSWORD = "root"
     }
 
     stages {
@@ -20,29 +16,20 @@ pipeline {
 
         stage('Build Application') {
             steps {
-                sh 'mvn clean install -DskipTests -B' // skip tests for faster build
-            }
-        }
-
-        stage('Prepare Database') {
-            steps {
-                sh '''
-                # Remove existing container if exists
-                docker ps -a | grep spring-petclinic-mysql && docker rm -f spring-petclinic-mysql || true
-
-                # Start MySQL container for tests
-                docker run -d --name spring-petclinic-mysql \
-                    -e MYSQL_ROOT_PASSWORD=root \
-                    -e MYSQL_DATABASE=test \
-                    -p 3306:3306 mysql:9.5
-                '''
+                sh 'mvn clean install -DskipTests -B'
             }
         }
 
         stage('Run Tests') {
             steps {
-                timeout(time: 10, unit: 'MINUTES') { // increase timeout
-                    sh 'mvn test -B' // batch mode
+                timeout(time: 15, unit: 'MINUTES') {
+                    sh '''
+                    echo "Cleaning old Testcontainers..."
+                    docker rm -f $(docker ps -aq --filter "ancestor=mysql:9.5") || true
+
+                    echo "Running tests..."
+                    mvn test -B
+                    '''
                 }
             }
         }
@@ -55,7 +42,7 @@ pipeline {
                 sh """
                 mvn sonar:sonar \
                     -Dsonar.projectKey=SpringPetClinic \
-                    -Dsonar.host.url=https://44.192.23.13:9090/ \
+                    -Dsonar.host.url=https://13.217.221.121:9090/ \
                     -Dsonar.login=\$SONAR_TOKEN -B
                 """
             }
@@ -83,12 +70,6 @@ pipeline {
             steps {
                 dir('/home/ec2-user/devops-projects/terraform-petclinic') {
                     sh '''
-                    echo "Current directory:"
-                    pwd
-
-                    echo "Terraform files:"
-                    ls -la
-
                     terraform init -input=false -reconfigure
                     terraform apply -auto-approve -input=false
                     '''
@@ -99,6 +80,8 @@ pipeline {
 
     post {
         always {
+            echo "Cleaning unused Docker resources..."
+            sh 'docker system prune -f || true'
             cleanWs()
         }
         success {
