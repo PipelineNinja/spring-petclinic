@@ -24,7 +24,7 @@ pipeline {
             steps {
                 timeout(time: 15, unit: 'MINUTES') {
                     sh '''
-                    echo "Cleaning old Testcontainers..."
+                    echo "Cleaning old MySQL Testcontainers..."
                     docker rm -f $(docker ps -aq --filter "ancestor=mysql:9.5") || true
 
                     echo "Running tests..."
@@ -40,9 +40,9 @@ pipeline {
             }
             steps {
                 sh """
-                mvn sonar:sonar \
+                mvn org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
                     -Dsonar.projectKey=SpringPetClinic \
-                    -Dsonar.host.url=https://13.217.221.121:9000/ \
+                    -Dsonar.host.url=http://13.217.221.121:9000 \
                     -Dsonar.login=\$SONAR_TOKEN -B
                 """
             }
