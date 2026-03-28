@@ -30,7 +30,23 @@ pipeline {
             steps {
                 sh 'docker build -t kishormore123/spring-petclinic:latest .'
             }
-        }
+        } 
+        
+       stage('SonarQube Analysis') {
+           environment {
+               SONAR_TOKEN = credentials('Sonar-Qube-Token') // your Jenkins credential
+          } 
+
+          steps {
+              sh '''
+              mvn sonar:sonar \
+                     -Dsonar.projectKey=SpringPetClinic \
+                     -Dsonar.host.url=http://44.213.66.196:9000/ \
+                     -Dsonar.login=$SONAR_TOKEN
+                 '''
+           }
+       }
+         
 
         stage('Docker Login & Push') {
             environment {
@@ -54,7 +70,8 @@ pipeline {
                     echo "Terraform files:"
                     ls -la
 
-                    terraform init -input=false
+                    # Use -reconfigure to ensure remote backend is correctly initialized
+                    terraform init -input=false -reconfigure
                     terraform apply -auto-approve -input=false
                     '''
                 }
