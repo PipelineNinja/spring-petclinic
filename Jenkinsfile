@@ -26,31 +26,29 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            environment {
+                SONAR_TOKEN = credentials('Sonar-Qube-Token') // Jenkins credential for SonarQube token
+            }
+            steps {
+                sh '''
+                mvn sonar:sonar \
+                    -Dsonar.projectKey=SpringPetClinic \
+                    -Dsonar.host.url=http://44.213.66.196:9000/ \
+                    -Dsonar.login=$SONAR_TOKEN
+                '''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 sh 'docker build -t kishormore123/spring-petclinic:latest .'
             }
-        } 
-        
-       stage('SonarQube Analysis') {
-           environment {
-               SONAR_TOKEN = credentials('Sonar-Qube-Token') // your Jenkins credential
-          } 
-
-          steps {
-              sh '''
-              mvn sonar:sonar \
-                     -Dsonar.projectKey=SpringPetClinic \
-                     -Dsonar.host.url=http://44.213.66.196:9000/ \
-                     -Dsonar.login=$SONAR_TOKEN
-                 '''
-           }
-       }
-         
+        }
 
         stage('Docker Login & Push') {
             environment {
-                DOCKERHUB_CREDS = credentials('dockerhub-creds')
+                DOCKERHUB_CREDS = credentials('dockerhub-creds') // Jenkins credential for DockerHub
             }
             steps {
                 sh '''
@@ -70,7 +68,7 @@ pipeline {
                     echo "Terraform files:"
                     ls -la
 
-                    # Use -reconfigure to ensure remote backend is correctly initialized
+                    # Initialize Terraform with remote backend and reconfigure
                     terraform init -input=false -reconfigure
                     terraform apply -auto-approve -input=false
                     '''
