@@ -3,6 +3,10 @@ pipeline {
 
     environment {
         PATH = "/usr/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:${env.PATH}"
+        // Predefined Spring Boot datasource to reuse MySQL container
+        SPRING_DATASOURCE_URL = "jdbc:mysql://localhost:3306/test"
+        SPRING_DATASOURCE_USERNAME = "root"
+        SPRING_DATASOURCE_PASSWORD = "root"
     }
 
     stages {
@@ -10,19 +14,34 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                url: 'https://github.com/PipelineNinja/spring-petclinic.git'
+                    url: 'https://github.com/PipelineNinja/spring-petclinic.git'
             }
         }
 
         stage('Build Application') {
             steps {
-                sh 'mvn clean install -DskipTests -B' // batch mode
+                sh 'mvn clean install -DskipTests -B' // skip tests for faster build
+            }
+        }
+
+        stage('Prepare Database') {
+            steps {
+                sh '''
+                # Remove existing container if exists
+                docker ps -a | grep spring-petclinic-mysql && docker rm -f spring-petclinic-mysql || true
+
+                # Start MySQL container for tests
+                docker run -d --name spring-petclinic-mysql \
+                    -e MYSQL_ROOT_PASSWORD=root \
+                    -e MYSQL_DATABASE=test \
+                    -p 3306:3306 mysql:9.5
+                '''
             }
         }
 
         stage('Run Tests') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') { // prevent hanging
+                timeout(time: 10, unit: 'MINUTES') { // increase timeout
                     sh 'mvn test -B' // batch mode
                 }
             }
@@ -30,13 +49,13 @@ pipeline {
 
         stage('SonarQube Analysis') {
             environment {
-                SONAR_TOKEN = credentials('Sonar-Qube-Token') // Jenkins credential
+                SONAR_TOKEN = credentials('Sonar-Qube-Token')
             }
             steps {
                 sh """
                 mvn sonar:sonar \
                     -Dsonar.projectKey=SpringPetClinic \
-                    -Dsonar.host.url=https://100.55.152.34:9090/ \
+                    -Dsonar.host.url=https://44.192.23.13:9090/ \
                     -Dsonar.login=\$SONAR_TOKEN -B
                 """
             }
