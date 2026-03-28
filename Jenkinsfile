@@ -16,27 +16,29 @@ pipeline {
 
         stage('Build Application') {
             steps {
-                sh 'mvn clean install -DskipTests'
+                sh 'mvn clean install -DskipTests -B' // batch mode
             }
         }
 
         stage('Run Tests') {
             steps {
-                sh 'mvn test'
+                timeout(time: 5, unit: 'MINUTES') { // prevent hanging
+                    sh 'mvn test -B' // batch mode
+                }
             }
         }
 
         stage('SonarQube Analysis') {
             environment {
-                SONAR_TOKEN = credentials('Sonar-Qube-Token') // Jenkins credential for SonarQube token
+                SONAR_TOKEN = credentials('Sonar-Qube-Token') // Jenkins credential
             }
             steps {
-                sh '''
+                sh """
                 mvn sonar:sonar \
                     -Dsonar.projectKey=SpringPetClinic \
-                    -Dsonar.host.url=https://44.213.66.196:9000/ \
-                    -Dsonar.login=$SONAR_TOKEN
-                '''
+                    -Dsonar.host.url=http://35.173.48.114:9090/ \
+                    -Dsonar.login=\$SONAR_TOKEN -B
+                """
             }
         }
 
@@ -48,7 +50,7 @@ pipeline {
 
         stage('Docker Login & Push') {
             environment {
-                DOCKERHUB_CREDS = credentials('dockerhub-creds') // Jenkins credential for DockerHub
+                DOCKERHUB_CREDS = credentials('dockerhub-creds')
             }
             steps {
                 sh '''
@@ -68,7 +70,6 @@ pipeline {
                     echo "Terraform files:"
                     ls -la
 
-                    # Initialize Terraform with remote backend and reconfigure
                     terraform init -input=false -reconfigure
                     terraform apply -auto-approve -input=false
                     '''
