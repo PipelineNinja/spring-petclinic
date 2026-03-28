@@ -24,8 +24,10 @@ pipeline {
             steps {
                 timeout(time: 15, unit: 'MINUTES') {
                     sh '''
-                    echo "Cleaning old MySQL Testcontainers..."
-                    docker rm -f $(docker ps -aq --filter "ancestor=mysql:9.5") || true
+                    echo "Cleaning ONLY MySQL Testcontainers..."
+
+                    # Remove ONLY mysql containers (safe)
+                    docker ps -a | grep mysql | awk '{print $1}' | xargs -r docker rm -f
 
                     echo "Running tests..."
                     mvn test -B
@@ -80,8 +82,7 @@ pipeline {
 
     post {
         always {
-            echo "Cleaning unused Docker resources..."
-            sh 'docker system prune -f || true'
+            echo "Skipping docker system prune to protect SonarQube"
             cleanWs()
         }
         success {
