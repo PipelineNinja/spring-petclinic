@@ -24,12 +24,11 @@ pipeline {
             steps {
                 timeout(time: 15, unit: 'MINUTES') {
                     sh '''
-                    echo "Cleaning ONLY MySQL Testcontainers..."
+                    echo "Cleaning ONLY old MySQL containers (safe)..."
 
-                    # Remove ONLY mysql containers (safe)
                     docker ps -a | grep mysql | awk '{print $1}' | xargs -r docker rm -f
 
-                    echo "Running tests..."
+                    echo "Running tests (Testcontainers should start MySQL)..."
                     mvn test -B
                     '''
                 }
@@ -44,7 +43,7 @@ pipeline {
                 sh """
                 mvn org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
                     -Dsonar.projectKey=SpringPetClinic \
-                    -Dsonar.host.url=https://13.217.221.121:9000 \
+                    -Dsonar.host.url=https://44.192.71.28:9000 \
                     -Dsonar.login=\$SONAR_TOKEN -B
                 """
             }
@@ -82,14 +81,8 @@ pipeline {
 
     post {
         always {
-            echo "Skipping docker system prune to protect SonarQube"
+            echo "Cleaning workspace only (SonarQube safe)"
             cleanWs()
-        }
-        success {
-            echo "✅ Pipeline completed successfully!"
-        }
-        failure {
-            echo "❌ Pipeline failed!"
         }
     }
 }
