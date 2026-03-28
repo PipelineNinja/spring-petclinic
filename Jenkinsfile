@@ -46,8 +46,14 @@ pipeline {
 
         stage('Terraform Init & Apply') {
             steps {
-                dir('terraform-petclinic') {
+                dir('/home/ec2-user/devops-projects/terraform-petclinic') {
                     sh '''
+                    echo "Current directory:"
+                    pwd
+
+                    echo "Terraform files:"
+                    ls -la
+
                     terraform init -input=false
                     terraform apply -auto-approve -input=false
                     '''
