@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        SONAR_HOST = "http://3.238.242.62:9000"
         PATH = "/usr/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:${env.PATH}"
         TESTCONTAINERS_RYUK_DISABLED = "true"
     }
@@ -51,12 +50,9 @@ pipeline {
                 SONAR_TOKEN = credentials('Sonar-Qube-Token')
             }
             steps {
-                sh """
-                mvn org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
-                    -Dsonar.projectKey=SpringPetClinic \
-                    -Dsonar.host.url=$SONAR_HOST \
-                    -Dsonar.login=\$SONAR_TOKEN -B
-                """
+                withSonarQubeEnv('SonarQube') {
+                    sh 'mvn clean verify sonar:sonar -Dsonar.login=$SONAR_TOKEN -B'
+                }
             }
         }
 
