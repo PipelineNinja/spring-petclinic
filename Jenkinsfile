@@ -4,9 +4,10 @@ pipeline {
     environment {
         PATH = "/usr/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:${env.PATH}"
 
-        // Disable Testcontainers issues in CI
+        // Disable Testcontainers completely for CI unit tests
         TESTCONTAINERS_RYUK_DISABLED = "true"
         TESTCONTAINERS_CHECKS_DISABLE = "true"
+        TESTCONTAINERS_ENABLED = "false"
     }
 
     stages {
@@ -31,7 +32,7 @@ pipeline {
                 echo "Ensuring SonarQube is preserved..."
                 docker ps --filter "name=sonarqube"
 
-                # Light cleanup only
+                # Light cleanup only (exclude SonarQube)
                 docker container prune -f || true
                 '''
             }
@@ -50,7 +51,7 @@ pipeline {
                     echo "Running unit tests only (NO Testcontainers)..."
 
                     mvn test -B \
-                    -Dtest=!MySqlIntegrationTests \
+                    -Dtest=!**IntegrationTest \
                     -Dspring.profiles.active=test \
                     -Dtestcontainers.enabled=false \
                     -DforkCount=1 \
