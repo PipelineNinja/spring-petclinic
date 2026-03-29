@@ -15,3 +15,15 @@ variable "key_name" {
   type        = string
   default     = "petclinic-key"
 }
+
+variable "vpc_id" {
+  description = "VPC ID where resources will be deployed"
+  type        = string
+  default     = "vpc-0a6f17787ba9bee47"
+}
+
+variable "subnet_id" {
+  description = "Subnet ID where EC2 instance will be launched"
+  type        = string
+  default     = "subnet-0f85704087b4d0fe1"
+}
