@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         PATH = "/usr/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:${env.PATH}"
+        TESTCONTAINERS_RYUK_DISABLED = "true"
     }
 
     stages {
@@ -14,6 +15,15 @@ pipeline {
             }
         }
 
+        stage('Cleanup Old Containers') {
+            steps {
+                sh '''
+                echo "Cleaning ALL exited containers (prevents port conflicts)..."
+                docker container prune -f || true
+                '''
+            }
+        }
+
         stage('Build Application') {
             steps {
                 sh 'mvn clean install -DskipTests -B'
@@ -22,13 +32,13 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                timeout(time: 15, unit: 'MINUTES') {
+                timeout(time: 10, unit: 'MINUTES') {
                     sh '''
-                    echo "Cleaning ONLY old MySQL containers (safe)..."
+                    echo "Running tests with Testcontainers..."
 
-                    docker ps -a | grep mysql | awk '{print $1}' | xargs -r docker rm -f
+                    echo "Docker status:"
+                    docker ps -a
 
-                    echo "Running tests (Testcontainers should start MySQL)..."
                     mvn test -B
                     '''
                 }
@@ -43,7 +53,7 @@ pipeline {
                 sh """
                 mvn org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
                     -Dsonar.projectKey=SpringPetClinic \
-                    -Dsonar.host.url=https://44.192.71.28:9000 \
+                    -Dsonar.host.url=http://35.173.48.114:9090 \
                     -Dsonar.login=\$SONAR_TOKEN -B
                 """
             }
@@ -69,11 +79,13 @@ pipeline {
 
         stage('Terraform Init & Apply') {
             steps {
-                dir('/home/ec2-user/devops-projects/terraform-petclinic') {
-                    sh '''
-                    terraform init -input=false -reconfigure
-                    terraform apply -auto-approve -input=false
-                    '''
+                timeout(time: 15, unit: 'MINUTES') {
+                    dir('/home/ec2-user/devops-projects/terraform-petclinic') {
+                        sh '''
+                        terraform init -input=false -reconfigure
+                        terraform apply -auto-approve -input=false
+                        '''
+                    }
                 }
             }
         }
@@ -81,7 +93,7 @@ pipeline {
 
     post {
         always {
-            echo "Cleaning workspace only (SonarQube safe)"
+            echo "Cleaning workspace"
             cleanWs()
         }
     }
