@@ -116,17 +116,36 @@ pipeline {
         }
 
         stage('Terraform Init & Apply') {
+            environment {
+                AWS_ACCESS_KEY_ID     = credentials('AWS-CRED')
+                AWS_SECRET_ACCESS_KEY = credentials('AWS-CRED')
+            }
             steps {
                 timeout(time: 15, unit: 'MINUTES') {
                     dir('/home/ec2-user/devops-projects/terraform-petclinic') {
                         sh '''
-                        echo "Initializing Terraform..."
+                        echo "Cleaning old Terraform cache..."
+                        rm -rf .terraform
+                        rm -f .terraform.lock.hcl
 
-                        terraform init -reconfigure -input=false || \
-                        terraform init -reconfigure -force-copy -input=false
+                        echo "Initializing Terraform with S3 + DynamoDB backend..."
+                        terraform init -reconfigure \
+                          -backend-config="bucket=petclinic-terraform-state-kishor" \
+                          -backend-config="key=petclinic/terraform.tfstate" \
+                          -backend-config="region=us-east-1" \
+                          -backend-config="dynamodb_table=terraform-lock" \
+                          -backend-config="encrypt=true"
 
+                        echo "Selecting workspace..."
+                        terraform workspace select dev || terraform workspace new dev
+
+                        echo "Validating..."
                         terraform validate
+
+                        echo "Planning..."
                         terraform plan -input=false
+
+                        echo "Applying..."
                         terraform apply -auto-approve -input=false
                         '''
                     }
@@ -142,6 +161,8 @@ pipeline {
 
             # Remove only MySQL containers
             docker ps -a --filter "ancestor=mysql" -q | xargs -r docker rm -f
+            # Remove PostgreSQL containers
+            docker ps -a --filter "ancestor=postgres" -q | xargs -r docker rm -f
 
             # DO NOT delete SonarQube container
             echo "Verifying SonarQube container still exists:"
