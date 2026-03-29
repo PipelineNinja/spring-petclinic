@@ -3,8 +3,10 @@ pipeline {
 
     environment {
         PATH = "/usr/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:${env.PATH}"
-        TESTCONTAINERS_RYUK_DISABLED = "false"
-        TESTCONTAINERS_WAIT_TIMEOUT = "120000"
+
+        // Disable Testcontainers issues in CI
+        TESTCONTAINERS_RYUK_DISABLED = "true"
+        TESTCONTAINERS_CHECKS_DISABLE = "true"
     }
 
     stages {
@@ -16,17 +18,21 @@ pipeline {
             }
         }
 
-        stage('Cleanup Old Containers') {
+        stage('Cleanup Old Containers (SAFE)') {
             steps {
                 sh '''
-                echo "Cleaning up old containers (preserving SonarQube)..."
-                # Only remove MySQL and test containers, NOT SonarQube
-                docker rm -f $(docker ps -aq --filter "ancestor=mysql") 2>/dev/null || true
-                docker rm -f $(docker ps -aq --filter "label=org.testcontainers") 2>/dev/null || true
+                echo "Cleaning old containers EXCEPT SonarQube..."
+
+                # Remove only MySQL containers
+                docker ps -a --filter "ancestor=mysql" -q | xargs -r docker rm -f
+                # Remove PostgreSQL containers
+                docker ps -a --filter "ancestor=postgres" -q | xargs -r docker rm -f
+                # DO NOT touch SonarQube container
+                echo "Ensuring SonarQube is preserved..."
+                docker ps --filter "name=sonarqube"
+
+                # Light cleanup only
                 docker container prune -f || true
-                
-                echo "SonarQube container status:"
-                docker ps --filter "name=sonarqube" || echo "SonarQube not running"
                 '''
             }
         }
@@ -37,18 +43,42 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
+        stage('Run Unit Tests (CI Safe)') {
             steps {
-                timeout(time: 15, unit: 'MINUTES') {
+                timeout(time: 10, unit: 'MINUTES') {
                     sh '''
-                    echo "Running tests (skipping MySQL integration tests)..."
-                    
-                    # Run only unit tests, skip integration tests that cause hanging
-                    mvn test -B -Dtest=!MySqlIntegrationTests -DfailIfNoTests=false
-                    
-                    echo "Tests completed successfully!"
+                    echo "Running unit tests only (NO Testcontainers)..."
+
+                    mvn test -B \
+                    -Dtest=!MySqlIntegrationTests \
+                    -Dspring.profiles.active=test \
+                    -Dtestcontainers.enabled=false \
+                    -DforkCount=1 \
+                    -DreuseForks=false \
+                    -DfailIfNoTests=false
+
+                    echo "Unit Tests Completed!"
                     '''
                 }
+            }
+        }
+
+        stage('Ensure SonarQube Running') {
+            steps {
+                sh '''
+                echo "Checking SonarQube container..."
+
+                if ! docker ps --format "{{.Names}}" | grep -q "^sonarqube$"; then
+                    echo "Starting existing SonarQube container..."
+                    docker start sonarqube || {
+                        echo "ERROR: SonarQube container not found!"
+                        exit 1
+                    }
+                    sleep 15
+                else
+                    echo "SonarQube already running"
+                fi
+                '''
             }
         }
 
@@ -57,20 +87,12 @@ pipeline {
                 SONAR_TOKEN = credentials('Sonar-Qube-Token')
             }
             steps {
-                script {
-                    sh '''
-                    echo "Checking SonarQube container status..."
-                    if ! docker ps --format "{{.Names}}" | grep -q "^sonarqube$"; then
-                        echo "Starting SonarQube container..."
-                        docker start sonarqube || echo "Warning: Could not start SonarQube"
-                        sleep 10
-                    else
-                        echo "SonarQube is already running"
-                    fi
-                    '''
-                }
                 withSonarQubeEnv('SonarQube') {
-                    sh 'mvn verify sonar:sonar -Dsonar.login=$SONAR_TOKEN -B -DskipTests'
+                    sh '''
+                    mvn verify sonar:sonar -B \
+                    -DskipTests \
+                    -Dsonar.login=$SONAR_TOKEN
+                    '''
                 }
             }
         }
@@ -98,21 +120,13 @@ pipeline {
                 timeout(time: 15, unit: 'MINUTES') {
                     dir('/home/ec2-user/devops-projects/terraform-petclinic') {
                         sh '''
-                        echo "Initializing Terraform with backend configuration..."
-                        
-                        # First, try to init with -reconfigure to handle backend changes
-                        terraform init -reconfigure -input=false || {
-                            echo "Init with reconfigure failed, trying force-copy..."
-                            terraform init -reconfigure -force-copy -input=false
-                        }
-                        
-                        echo "Validating Terraform configuration..."
+                        echo "Initializing Terraform..."
+
+                        terraform init -reconfigure -input=false || \
+                        terraform init -reconfigure -force-copy -input=false
+
                         terraform validate
-                        
-                        echo "Planning Terraform changes..."
                         terraform plan -input=false
-                        
-                        echo "Applying Terraform changes..."
                         terraform apply -auto-approve -input=false
                         '''
                     }
@@ -124,17 +138,20 @@ pipeline {
     post {
         always {
             sh '''
-            echo "Final cleanup (preserving SonarQube)..."
-            # Only remove MySQL and test containers, NOT SonarQube
-            docker rm -f $(docker ps -aq --filter "ancestor=mysql") 2>/dev/null || true
-            docker rm -f $(docker ps -aq --filter "label=org.testcontainers") 2>/dev/null || true
+            echo "Final Cleanup (SAFE)..."
+
+            # Remove only MySQL containers
+            docker ps -a --filter "ancestor=mysql" -q | xargs -r docker rm -f
+
+            # DO NOT delete SonarQube container
+            echo "Verifying SonarQube container still exists:"
+            docker ps -a --filter "name=sonarqube"
+
+            # Optional light cleanup
             docker container prune -f || true
-            
-            echo "Final container status:"
+
+            echo "Final Docker Status:"
             docker ps -a
-            
-            echo "SonarQube container (preserved):"
-            docker ps --filter "name=sonarqube"
             '''
             cleanWs()
         }
