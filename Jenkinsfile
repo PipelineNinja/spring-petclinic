@@ -98,7 +98,21 @@ pipeline {
                 timeout(time: 15, unit: 'MINUTES') {
                     dir('/home/ec2-user/devops-projects/terraform-petclinic') {
                         sh '''
-                        terraform init -input=false -reconfigure
+                        echo "Initializing Terraform with backend configuration..."
+                        
+                        # First, try to init with -reconfigure to handle backend changes
+                        terraform init -reconfigure -input=false || {
+                            echo "Init with reconfigure failed, trying force-copy..."
+                            terraform init -reconfigure -force-copy -input=false
+                        }
+                        
+                        echo "Validating Terraform configuration..."
+                        terraform validate
+                        
+                        echo "Planning Terraform changes..."
+                        terraform plan -input=false
+                        
+                        echo "Applying Terraform changes..."
                         terraform apply -auto-approve -input=false
                         '''
                     }
