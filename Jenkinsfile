@@ -3,7 +3,8 @@ pipeline {
 
     environment {
         PATH = "/usr/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:${env.PATH}"
-        TESTCONTAINERS_RYUK_DISABLED = "true"
+        TESTCONTAINERS_RYUK_DISABLED = "false"
+        TESTCONTAINERS_WAIT_TIMEOUT = "120000"
     }
 
     stages {
@@ -18,7 +19,9 @@ pipeline {
         stage('Cleanup Old Containers') {
             steps {
                 sh '''
-                echo "Cleaning ALL exited containers (prevents port conflicts)..."
+                echo "Cleaning ALL containers to prevent port conflicts..."
+                docker stop $(docker ps -aq --filter "label=org.testcontainers") 2>/dev/null || true
+                docker rm $(docker ps -aq --filter "label=org.testcontainers") 2>/dev/null || true
                 docker container prune -f || true
                 '''
             }
@@ -32,14 +35,14 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                timeout(time: 10, unit: 'MINUTES') {
+                timeout(time: 15, unit: 'MINUTES') {
                     sh '''
                     echo "Running tests with Testcontainers..."
 
                     echo "Docker status:"
                     docker ps -a
 
-                    mvn test -B
+                    mvn test -B -DforkCount=1 -DreuseForks=false
                     '''
                 }
             }
@@ -51,7 +54,7 @@ pipeline {
             }
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh 'mvn clean verify sonar:sonar -Dsonar.login=$SONAR_TOKEN -B'
+                    sh 'mvn clean verify sonar:sonar -Dsonar.login=$SONAR_TOKEN -B -DskipTests'
                 }
             }
         }
@@ -90,6 +93,11 @@ pipeline {
 
     post {
         always {
+            echo "Cleaning up test containers..."
+            sh '''
+            docker stop $(docker ps -aq --filter "label=org.testcontainers") 2>/dev/null || true
+            docker rm $(docker ps -aq --filter "label=org.testcontainers") 2>/dev/null || true
+            '''
             echo "Cleaning workspace"
             cleanWs()
         }
