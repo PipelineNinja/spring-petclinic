@@ -64,6 +64,13 @@ pipeline {
                 sh 'docker build -t kishormore123/spring-petclinic:latest .'
             }
         }
+        stage('Trivy Scan') {   // <-- NEW Trivy stage added
+            steps {
+                script {
+                    sh 'trivy image --severity HIGH,CRITICAL kishormore123/spring-petclinic:latest'
+                }
+            }
+        }
         stage('Docker Login & Push') {
             environment {
                 DOCKERHUB_CREDS = credentials('dockerhub-creds')
@@ -122,4 +129,3 @@ pipeline {
         }
     }
 }
-
