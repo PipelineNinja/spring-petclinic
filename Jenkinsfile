@@ -85,8 +85,8 @@ pipeline {
                     dir('/home/ec2-user/devops-projects/terraform-petclinic') {
                         sh '''
                         echo "Cleaning old Terraform cache..."
-                        sudo rm -rf .terraform
-                        sudo rm -f .terraform.lock.hcl
+                        rm -rf .terraform
+                        rm -f .terraform.lock.hcl
                         echo "Initializing Terraform with S3 + DynamoDB backend..."
                         terraform init -reconfigure \
                           -backend-config="bucket=petclinic-terraform-state-kishor" \
