@@ -64,9 +64,9 @@ pipeline {
                 sh 'docker build -t kishormore123/spring-petclinic:latest .'
             }
         }
-        stage('Trivy Scan') {   // <-- NEW Trivy stage
+        stage('Trivy Scan') {   // <-- Updated Trivy stage
             environment {
-                TRIVY_CACHE_DIR = "/home/ec2-user/trivy-cache"
+                TRIVY_CACHE_DIR = "/home/jenkins/trivy-cache"
             }
             steps {
                 script {
