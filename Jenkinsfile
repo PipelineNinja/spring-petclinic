@@ -64,10 +64,13 @@ pipeline {
                 sh 'docker build -t kishormore123/spring-petclinic:latest .'
             }
         }
-        stage('Trivy Scan') {   // <-- NEW Trivy stage added
+        stage('Trivy Scan') {   // <-- NEW Trivy stage
+            environment {
+                TRIVY_CACHE_DIR = "/home/ec2-user/trivy-cache"
+            }
             steps {
                 script {
-                    sh 'trivy image --severity HIGH,CRITICAL kishormore123/spring-petclinic:latest'
+                    sh 'trivy image --cache-dir $TRIVY_CACHE_DIR --severity HIGH,CRITICAL kishormore123/spring-petclinic:latest'
                 }
             }
         }
