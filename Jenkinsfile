@@ -64,13 +64,13 @@ pipeline {
                 sh 'docker build -t kishormore123/spring-petclinic:latest .'
             }
         }
-        stage('Trivy Scan') {   // <-- Updated Trivy stage
+        stage('Trivy Scan') {   // <-- Trivy with skip-update
             environment {
                 TRIVY_CACHE_DIR = "/home/jenkins/trivy-cache"
             }
             steps {
                 script {
-                    sh 'trivy image --cache-dir $TRIVY_CACHE_DIR --severity HIGH,CRITICAL kishormore123/spring-petclinic:latest'
+                    sh 'trivy image --skip-update --cache-dir $TRIVY_CACHE_DIR --severity HIGH,CRITICAL kishormore123/spring-petclinic:latest'
                 }
             }
         }
