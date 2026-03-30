@@ -7,20 +7,12 @@ pipeline {
         TESTCONTAINERS_ENABLED = "false"
     }
     stages {
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main',
-                    url: 'git@github.com:PipelineNinja/spring-petclinic.git'
-            }
-        }
-        stage('Cleanup Old Containers (SAFE)') {
+        stage('Cleanup Old Containers') {
             steps {
                 sh '''
-                echo "Cleaning old containers EXCEPT SonarQube..."
+                echo "Cleaning old containers..."
                 docker ps -a --filter "ancestor=mysql" -q | xargs -r docker rm -f
                 docker ps -a --filter "ancestor=postgres" -q | xargs -r docker rm -f
-                echo "Ensuring SonarQube is preserved..."
-                docker ps --filter "name=sonarqube"
                 docker container prune -f || true
                 '''
             }
@@ -51,23 +43,6 @@ pipeline {
                     echo "Unit Tests Completed!"
                     '''
                 }
-            }
-        }
-        stage('Ensure SonarQube Running') {
-            steps {
-                sh '''
-                echo "Checking SonarQube container..."
-                if ! docker ps --format "{{.Names}}" | grep -q "^sonarqube$"; then
-                    echo "Starting existing SonarQube container..."
-                    docker start sonarqube || {
-                        echo "ERROR: SonarQube container not found!"
-                        exit 1
-                    }
-                    sleep 15
-                else
-                    echo "SonarQube already running"
-                fi
-                '''
             }
         }
         stage('SonarQube Analysis') {
@@ -136,11 +111,9 @@ pipeline {
     post {
         always {
             sh '''
-            echo "Final Cleanup (SAFE)..."
+            echo "Final Cleanup..."
             docker ps -a --filter "ancestor=mysql" -q | xargs -r docker rm -f
             docker ps -a --filter "ancestor=postgres" -q | xargs -r docker rm -f
-            echo "Verifying SonarQube container still exists:"
-            docker ps -a --filter "name=sonarqube"
             docker container prune -f || true
             echo "Final Docker Status:"
             docker ps -a
@@ -149,3 +122,4 @@ pipeline {
         }
     }
 }
+
