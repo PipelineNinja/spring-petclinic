@@ -426,12 +426,12 @@
     <!-- For SNAPSHOT versions -->
     <snapshotRepository>
         <id>nexus</id>
-        <url>https://3.238.253.197:8081/repository/maven-snapshots/</url>
+        <url>http://3.238.253.197:8081/repository/maven-snapshots/</url>
     </snapshotRepository>
     <!-- For RELEASE versions -->
     <repository>
         <id>nexus</id>
-        <url>https://3.238.253.197:8081/repository/maven-releases/</url>
+        <url>http://3.238.253.197:8081/repository/maven-releases/</url>
     </repository>
 </distributionManagement>
 </project>
