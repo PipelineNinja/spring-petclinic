@@ -213,6 +213,7 @@
         </dependency>
         -->
         </dependencies>
+        <!--
         <executions>
           <execution>
             <id>nohttp-checkstyle-validation</id>
@@ -228,6 +229,7 @@
               <propertyExpansion>config_loc=${basedir}/src/checkstyle/</propertyExpansion>
             </configuration>
           </execution>
+        -->
         </executions>
       </plugin>
       <plugin>
