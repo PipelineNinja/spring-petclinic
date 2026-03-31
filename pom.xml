@@ -229,8 +229,8 @@
               <propertyExpansion>config_loc=${basedir}/src/checkstyle/</propertyExpansion>
             </configuration>
           </execution>
-        -->
         </executions>
+        --->
       </plugin>
       <plugin>
         <groupId>org.graalvm.buildtools</groupId>
