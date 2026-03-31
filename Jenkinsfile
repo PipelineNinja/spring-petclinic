@@ -17,53 +17,75 @@ pipeline {
                 '''
             }
         }
+
         stage('Build Application') {
             steps {
                 sh 'mvn clean install -DskipTests -B'
             }
         }
-        stage('Run Unit Tests (CI Safe)') {
-            steps {
-                timeout(time: 10, unit: 'MINUTES') {
-                    sh '''
-                    echo "Running unit tests only (NO Testcontainers, NO DB)..."
-                    mvn test -B \
-                      -Dtest="!**IntegrationTest,!**IT" \
-                      -Dspring.profiles.active=test \
-                      -Dspring.datasource.url=jdbc:h2:mem:testdb \
-                      -Dspring.datasource.driver-class-name=org.h2.Driver \
-                      -Dspring.jpa.database-platform=org.hibernate.dialect.H2Dialect \
-                      -Dspring.datasource.username=sa \
-                      -Dspring.datasource.password= \
-                      -Dtestcontainers.enabled=false \
-                      -DforkCount=1 \
-                      -DreuseForks=false \
-                      -DfailIfNoTests=false \
-                      -Dsurefire.useFile=false
-                    echo "Unit Tests Completed!"
-                    '''
+
+        // PARALLEL GROUP 1: Tests + SonarQube
+        stage('Code Quality & Tests') {
+            parallel {
+                stage('Run Unit Tests (CI Safe)') {
+                    steps {
+                        timeout(time: 10, unit: 'MINUTES') {
+                            sh '''
+                            echo "Running unit tests only (NO Testcontainers, NO DB)..."
+                            mvn test -B \
+                              -Dtest="!**IntegrationTest,!**IT" \
+                              -Dspring.profiles.active=test \
+                              -Dspring.datasource.url=jdbc:h2:mem:testdb \
+                              -Dspring.datasource.driver-class-name=org.h2.Driver \
+                              -Dspring.jpa.database-platform=org.hibernate.dialect.H2Dialect \
+                              -Dspring.datasource.username=sa \
+                              -Dspring.datasource.password= \
+                              -Dtestcontainers.enabled=false \
+                              -DforkCount=1 \
+                              -DreuseForks=false \
+                              -DfailIfNoTests=false \
+                              -Dsurefire.useFile=false
+                            echo "Unit Tests Completed!"
+                            '''
+                        }
+                    }
+                }
+                stage('SonarQube Analysis') {
+                    environment {
+                        SONAR_TOKEN = credentials('Sonar')
+                    }
+                    steps {
+                        withSonarQubeEnv('SonarQube') {
+                            sh '''
+                            mvn verify sonar:sonar -B \
+                            -DskipTests \
+                            -Dsonar.login=$SONAR_TOKEN
+                            '''
+                        }
+                    }
                 }
             }
         }
-        stage('SonarQube Analysis') {
-            environment {
-                SONAR_TOKEN = credentials('Sonar')
-            }
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                    mvn verify sonar:sonar -B \
-                    -DskipTests \
-                    -Dsonar.login=$SONAR_TOKEN
-                    '''
+
+        // PARALLEL GROUP 2: Docker Build + Nexus Upload
+        stage('Publish Artifacts') {
+            parallel {
+                stage('Build Docker Image') {
+                    steps {
+                        sh 'docker build -t kishormore123/spring-petclinic:latest .'
+                    }
+                }
+                stage('Upload JAR to Nexus') {
+                    steps {
+                        withCredentials([usernamePassword(credentialsId: 'nexus-creds',
+                            usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                            sh 'mvn deploy -DskipTests -s /var/lib/jenkins/.m2/settings.xml'
+                        }
+                    }
                 }
             }
         }
-        stage('Build Docker Image') {
-            steps {
-                sh 'docker build -t kishormore123/spring-petclinic:latest .'
-            }
-        }
+
         stage('Trivy Scan') {
             environment {
                 TRIVY_CACHE_DIR = "/home/jenkins/trivy-cache"
@@ -75,14 +97,7 @@ pipeline {
                 }
             }
         }
-        stage('Upload JAR to Nexus') {
-           steps {
-               withCredentials([usernamePassword(credentialsId: 'nexus-creds',
-                   usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-                   sh 'mvn deploy -DskipTests -s /var/lib/jenkins/.m2/settings.xml'
-                }
-            }
-        }
+
         stage('Docker Login & Push') {
             environment {
                 DOCKERHUB_CREDS = credentials('dockerhub-creds')
@@ -94,6 +109,7 @@ pipeline {
                 '''
             }
         }
+
         stage('Terraform Init & Apply') {
             environment {
                 AWS_ACCESS_KEY_ID     = credentials('AWS-CRED')
@@ -127,6 +143,7 @@ pipeline {
             }
         }
     }
+
     post {
         always {
             sh '''
@@ -138,6 +155,12 @@ pipeline {
             docker ps -a
             '''
             cleanWs()
+        }
+        success {
+            echo '✅ Pipeline completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed! Check the logs above.'
         }
     }
 }
