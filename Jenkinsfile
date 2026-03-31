@@ -76,10 +76,10 @@ pipeline {
             }
         }
         stage('Upload JAR to Nexus') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'nexus-creds',
-                    usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-                    sh 'mvn deploy -DskipTests'
+           steps {
+               withCredentials([usernamePassword(credentialsId: 'nexus-creds',
+                   usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                   sh 'mvn deploy -DskipTests -s /var/lib/jenkins/.m2/settings.xml'
                 }
             }
         }
