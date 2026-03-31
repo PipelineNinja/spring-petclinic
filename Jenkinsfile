@@ -64,7 +64,7 @@ pipeline {
                 sh 'docker build -t kishormore123/spring-petclinic:latest .'
             }
         }
-        stage('Trivy Scan') {   
+        stage('Trivy Scan') {
             environment {
                 TRIVY_CACHE_DIR = "/home/jenkins/trivy-cache"
                 TMPDIR = "/home/ec2-user/trivy-tmp"
@@ -72,6 +72,14 @@ pipeline {
             steps {
                 script {
                     sh 'trivy image --cache-dir $TRIVY_CACHE_DIR --severity HIGH,CRITICAL kishormore123/spring-petclinic:latest'
+                }
+            }
+        }
+        stage('Upload JAR to Nexus') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'nexus-creds',
+                    usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                    sh 'mvn deploy -DskipTests'
                 }
             }
         }
